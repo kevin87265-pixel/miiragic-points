@@ -1479,6 +1479,7 @@ function selectRefStudent(sid,rid){
 
 function renderRefStudentDetail(sid,rid){
   var s=students.find(function(x){return x.id===sid;});
+  if(!s){document.getElementById('r-student-detail').innerHTML=emptyDiv('學員不存在');return;}
   var role=Number(s&&s.role||0);
   var earn=getEarn(sid),pv=getPV(sid),threshold=PV_GOAL[role]||null;
   var col=ac(sIdx(sid));
@@ -1599,7 +1600,7 @@ async function submitAddStudentRef(){
   var newId=uid('s');
   showLoading('新增中...');
   await dbUpsert('students',{id:newId,name:name,admin_id:rid,role:0,redeemable_pts:0});
-  await dbUpsert('accounts',{username:email,password:'12345',type:'student',linked_id:newId},{onConflict:'username'});
+  await supa.from('accounts').upsert({username:email,password:'12345',type:'student',linked_id:newId},{onConflict:'username'});
   students.push({id:newId,name:name,admin_id:rid,role:0,redeemable_pts:0});
   accounts.push({username:email,password:'12345',type:'student',linkedId:newId});
   hideLoading();closeModal('modal-add-student-ref');renderRefView(rid);
@@ -1621,7 +1622,7 @@ function renderSuper(){
     var barPct=role===0?Math.min(100,earn/GOAL*100).toFixed(1):threshold?Math.min(100,pv/threshold*100).toFixed(1):100;
     var barCls=role===0?'bar-earn':'bar-pv';
     var stat=role===0?earn.toFixed(1)+' 點':fmtPV(pv)+' PV';
-    var adjBtns='<button class="btn btn-warn btn-sm" onclick="openAdjustPts(\''+s.id+'\',\''+s.name+'\','+earn+')">調整點數</button>'+(role>0?'<button class="btn btn-warn btn-sm" onclick="openAdjustPv(\''+s.id+'\',\''+s.name+'\','+pv+')">調整PV</button>':'');
+    var adjBtns='<button class="btn btn-warn btn-sm" onclick="openAdjustPts(\''+s.id+'\',\''+s.name+'\','+earn+')">調整點數</button><button class="btn btn-warn btn-sm" onclick="openAdjustPv(\''+s.id+'\',\''+s.name+'\','+pv+')">調整PV</button>';
     return mkCard('<div class="row-between" style="margin-bottom:8px;"><div class="row"><div class="avatar" style="background:'+col.bg+';color:'+col.color+';">'+s.name[0]+'</div><div><div class="ttl">'+s.name+' '+roleBadge(role)+'</div><div class="lbl">推薦人：'+(ref?ref.name:'未指定')+'</div></div></div><div class="row" style="gap:6px;"><span style="font-size:13px;font-weight:600;">'+stat+'</span>'+adjBtns+'<button class="btn btn-ng btn-sm" onclick="deleteStudent(\''+s.id+'\')">刪除</button></div></div><div class="bar-wrap"><div class="'+barCls+'" style="width:'+barPct+'%"></div></div>');
   }).join(''):emptyDiv('尚無學員'));
 
@@ -1713,7 +1714,15 @@ async function submitAddStudent(){
 async function deleteStudent(id){
   showLoading('刪除中...');
   await dbDelete('students',id);
+  // 同步刪除帳號
+  var accIdx=accounts.findIndex(function(a){return a.type==='student'&&a.linkedId===id;});
+  if(accIdx>-1){
+    await dbDeleteWhere('accounts','linked_id',id);
+    accounts.splice(accIdx,1);
+  }
   students.splice(students.findIndex(function(s){return s.id===id;}),1);
+  // 如果推薦人正在查看這個學員，清除選取
+  if(selectedRefStudent===id) selectedRefStudent=null;
   hideLoading();renderSuper();showToast('學員已刪除');
 }
 
@@ -1832,16 +1841,26 @@ async function deletePvItem(role,idx){
 // ═══════════════════════════════════════════════
 function renderAccountsList(){
   var el=document.getElementById('sp-accounts-list');if(!el)return;
-  el.innerHTML=accounts.map(function(acc){
-    var typeLbl=acc.type==='super'?'總管理員':acc.type==='ref'?'推薦人':'學員';
+  var refAccs=accounts.filter(function(a){return a.type==='ref';});
+  var stuAccs=accounts.filter(function(a){return a.type==='student';});
+  function mkAccRow(acc){
+    var s=acc.type==='student'?students.find(function(x){return x.id===acc.linkedId;}):null;
+    var roleName=s?ROLE_NAMES[Number(s.role||0)]||'學員':'學員';
+    var typeLbl=acc.type==='super'?'總管理員':acc.type==='ref'?'推薦人':roleName;
     var linkedName='';
     if(acc.type==='ref'){var ref=referrers.find(function(r){return r.id===acc.linkedId;});linkedName=ref?ref.name:'';}
-    else if(acc.type==='student'){var s=students.find(function(x){return x.id===acc.linkedId;});linkedName=s?s.name:'';}
+    else if(acc.type==='student'){linkedName=s?s.name:'';}
     var typeBadge=acc.type==='super'?'badge-super':acc.type==='ref'?'badge-ref':'badge-r0';
     var isSelf=(currentAccount&&currentAccount.username===acc.username);
     var resetBtn=acc.type!=='super'?'<button class="btn btn-warn btn-sm" onclick="openChangePw(\''+acc.username+'\')">重設密碼</button>':'';
     return '<div class="account-row"><div style="flex:1;min-width:0;"><div class="row" style="gap:8px;flex-wrap:wrap;"><span class="badge '+typeBadge+'">'+typeLbl+'</span><span class="ttl">'+acc.username+'</span>'+(linkedName?'<span class="lbl">（'+linkedName+'）</span>':'')+(isSelf?'<span class="badge badge-approved">目前登入</span>':'')+'</div></div>'+resetBtn+'</div>';
-  }).join('');
+  }
+  var html='<div class="ttl" style="margin:0 0 10px;color:var(--brown);">推薦人帳號</div>';
+  html+=refAccs.length?refAccs.map(mkAccRow).join(''):emptyDiv('尚無推薦人帳號');
+  html+='<div class="divider"></div>';
+  html+='<div class="ttl" style="margin:12px 0 10px;color:var(--brown);">學員／老師帳號</div>';
+  html+=stuAccs.length?stuAccs.map(mkAccRow).join(''):emptyDiv('尚無學員帳號');
+  el.innerHTML=html;
 }
 
 function openChangePw(username){
