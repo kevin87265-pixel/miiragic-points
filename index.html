@@ -1427,8 +1427,12 @@ body.stage-0 .both-tab.active, body.stage-1 .both-tab.active, body.stage-2 .both
 const SUPA_URL = 'https://plgrsxtlaznajzqgcuqr.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsZ3JzeHRsYXpuYWp6cWdjdXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5Njg1MDIsImV4cCI6MjA5MDU0NDUwMn0.XyZ0wQbZQ-CInglRpv-MHMuMvkviRovm-o-On_FeyGs';
 var _token=null;
-try{_token=sessionStorage.getItem('miiragic_token');}catch(e){}
-function setToken(t){_token=t;try{if(t)sessionStorage.setItem('miiragic_token',t);else sessionStorage.removeItem('miiragic_token');}catch(e){}}
+// 登入狀態記在這台裝置上（切換 App、重新整理都不用重登；按登出才清掉；伺服器端 12 小時沒用會自動失效）
+try{_token=localStorage.getItem('miiragic_token')||sessionStorage.getItem('miiragic_token');}catch(e){}
+function setToken(t){_token=t;
+  try{if(t)localStorage.setItem('miiragic_token',t);else localStorage.removeItem('miiragic_token');}catch(e){}
+  try{if(t)sessionStorage.setItem('miiragic_token',t);else sessionStorage.removeItem('miiragic_token');}catch(e){}
+}
 
 // 呼叫伺服器函式
 async function mgRpc(fn,body){
