@@ -958,8 +958,8 @@ body[class*="stage-"] #view-student .sec-title { color: var(--st-ink); }
 #level-up.stage-3 .lu-spark { background: #e6cc98; }
 
 /* 弱密碼提醒、登入中 */
-#weak-pw-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding:12px 14px;border-radius:14px;background:#fbf3e4;border:1px solid #ecd9b5;color:#6b4e1f;font-size:13.5px;line-height:1.6;}
-#weak-pw-bar span{flex:1;min-width:200px;}
+#weak-pw-bar{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;margin:0 0 14px;padding:8px 10px 8px 14px;border-radius:14px;background:#fbf3e4;border:1px solid #ecd9b5;color:#6b4e1f;font-size:13.5px;line-height:1.6;}
+#weak-pw-bar span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #weak-pw-bar .btn{background:#8a6a3a;color:#fff;border:none;}
 #weak-pw-bar .wpb-x{background:none;border:none;font-size:18px;color:#a08660;cursor:pointer;padding:0 4px;}
 .btn-login.loading{opacity:.75;cursor:wait;}
@@ -970,9 +970,9 @@ html:has(body.stage-0) { background: #f8f3ed; } html:has(body.stage-1) { backgro
 html:has(body.stage-2) { background: #f3f3f8; } html:has(body.stage-3) { background: #f8f1ef; }
 .both-tab.active { background: linear-gradient(135deg, #8f635e, #714c48) !important; border-color: transparent !important; color: #fff !important; box-shadow: 0 6px 16px -6px rgba(113,76,72,.45) !important; }
 body.stage-0 .both-tab.active, body.stage-1 .both-tab.active, body.stage-2 .both-tab.active, body.stage-3 .both-tab.active { background: linear-gradient(135deg, var(--st-acc), color-mix(in srgb, var(--st-acc) 72%, var(--st-ink))) !important; }
-#weak-pw-bar { position: relative; padding-right: 36px; }
-#weak-pw-bar .wpb-x { position: absolute; top: 6px; right: 6px; }
-@media (max-width: 640px) { #weak-pw-bar { font-size: 13px; } #weak-pw-bar span { min-width: 0; flex: 1 1 100%; } }
+#weak-pw-bar .btn{height:30px;padding:0 12px;flex-shrink:0;}
+#weak-pw-bar .wpb-x{flex-shrink:0;}
+@media (max-width: 640px) { #weak-pw-bar { font-size: 13px; } }
 </style>
 </head>
 <body>
@@ -1667,7 +1667,7 @@ function showWeakPw(weak){
   if(!weak){if(el)el.remove();return;}
   if(!el){
     el=document.createElement('div');el.id='weak-pw-bar';
-    el.innerHTML='<span>🔒 你的密碼太簡單（例如 12345），容易被別人猜到。建議現在就換一個。</span><button class="btn btn-sm" onclick="openChangePw(currentAccount.username)">立即修改</button><button class="wpb-x" onclick="this.parentNode.remove()" aria-label="關閉">×</button>';
+    el.innerHTML='<span>🔒 密碼太簡單，建議更改</span><button class="btn btn-sm" onclick="openChangePw(currentAccount.username)">修改</button><button class="wpb-x" onclick="this.parentNode.remove()" aria-label="關閉">×</button>';
     var mc=document.getElementById('main-container');mc.insertBefore(el,mc.firstChild);
   }
 }
