@@ -973,6 +973,26 @@ body.stage-0 .both-tab.active, body.stage-1 .both-tab.active, body.stage-2 .both
 #weak-pw-bar .btn{height:30px;padding:0 12px;flex-shrink:0;}
 #weak-pw-bar .wpb-x{flex-shrink:0;}
 @media (max-width: 640px) { #weak-pw-bar { font-size: 13px; } }
+
+/* 待審提醒 */
+.pend-alert{display:flex;align-items:center;gap:12px;margin:0 0 14px;border-radius:16px;padding:12px 12px 12px 14px;}
+.pend-alert.on{background:linear-gradient(135deg,#fff7ea,#fdecd6);border:1.5px solid #e9b973;box-shadow:0 8px 22px -12px rgba(190,120,40,.55);animation:paIn .5s ease both;}
+.pend-alert.calm{background:rgba(255,255,255,.6);border:1px dashed var(--st-line,rgba(0,0,0,.12));padding:9px 14px;}
+.pend-alert.calm span{font-size:13px;color:var(--st-sub,#8a7a70);}
+.pa-bell{position:relative;font-size:22px;line-height:1;flex-shrink:0;animation:ring 2.4s ease-in-out infinite;transform-origin:50% 0;}
+.pa-bell i{position:absolute;top:-3px;right:-4px;width:9px;height:9px;border-radius:50%;background:#d9534f;box-shadow:0 0 0 0 rgba(217,83,79,.6);animation:pulse 1.6s ease-out infinite;}
+.pa-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.pa-txt b{font-size:15.5px;color:#7a4a14;letter-spacing:.5px;}
+.pa-txt span{font-size:12.5px;color:#a0764a;}
+.pa-btn{flex-shrink:0;height:36px;padding:0 16px;border:none;border-radius:999px;background:linear-gradient(135deg,#c98a3c,#a8692a);color:#fff;font-family:inherit;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;box-shadow:0 6px 14px -6px rgba(168,105,42,.7);}
+.cnt-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;border-radius:999px;background:#d9534f;color:#fff;font-size:12px;font-weight:700;line-height:1;vertical-align:1px;}
+.both-tab{position:relative;}
+@keyframes ring{0%,70%,100%{transform:rotate(0)}75%{transform:rotate(14deg)}80%{transform:rotate(-12deg)}85%{transform:rotate(8deg)}90%{transform:rotate(-5deg)}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,83,79,.55)}100%{box-shadow:0 0 0 9px rgba(217,83,79,0)}}
+@keyframes paIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+#r-hero{margin-bottom:14px;}
+#view-ref .stat-grid{margin-top:4px;}
+@media (prefers-reduced-motion: reduce){.pa-bell,.pa-bell i{animation:none!important}}
 </style>
 </head>
 <body>
@@ -1686,7 +1706,7 @@ function renderTopbar(){
     // 備援：雙身份找不到推薦人記錄時，用學員名字
     if(!name&&isBoth&&acc.linkedStudentId){var bs=students.find(function(x){return x.id===acc.linkedStudentId;});if(bs)name=bs.name;}
     if(!name)name='推薦人';
-    rl='推薦人';bg='#f3e3e0';color='#8a5552';
+    rl=isBoth?'推薦人':'正式老師';bg='#f3e3e0';color='#8a5552';
   } else {
     var sid=isBoth?acc.linkedStudentId:acc.linkedId;
     var s=students.find(function(x){return x.id===sid;});
@@ -1870,7 +1890,85 @@ function renderStudentView(sid){
   }
   renderSEarnRecs(sid);renderSRedeemList(sid);renderSRedeemRecs(sid);renderSPvSection(sid);
   renderStageHero(sid);
+  try{refreshPendingUI();}catch(e){}
 }
+
+// ═══════════ 推薦人頁：身分卡＋待審提醒 ═══════════
+function teamPending(rid){
+  var ids=getTeamStudents(rid).map(function(s){return s.id;});
+  var f=function(arr){return arr.filter(function(r){return ids.indexOf(r.sid)>-1&&r.status==='pending';}).length;};
+  var e=f(earnRecords),p=f(pvRecords),r=f(redeemRecords);
+  return {e:e,p:p,r:r,total:e+p+r};
+}
+function refStageRole(){
+  var acc=currentAccount; if(!acc)return 3;
+  if(acc.type==='both'){var s=students.find(function(x){return x.id===acc.linkedStudentId;});return Math.max(0,Math.min(3,Number(s&&s.role||0)));}
+  return 3; // 純推薦人＝正式老師
+}
+function renderRefHero(rid){
+  var view=document.getElementById('view-ref'); if(!view)return;
+  var role=refStageRole(), st=STAGES[role];
+  view.classList.remove('stage-0','stage-1','stage-2','stage-3'); view.classList.add('stage-'+role);
+  setStageBody(role);
+  var ref=referrers.find(function(r){return r.id===rid;});
+  var name=(ref&&ref.name)||'';
+  var team=getTeamStudents(rid), direct=team.filter(function(s){return s.admin_id===rid;}).length;
+  var teachers=team.filter(function(s){return Number(s.role||0)>0;}).length;
+  var pend=teamPending(rid);
+  var motto=role===3?'你已抵達最高階。<br>帶領團隊，一起往上走。':'你的團隊正在成長。<br>每一次審核，都是在陪他們前進。';
+  var html='<div class="hero"><div class="hero-wm">'+st.svg+'</div>'
+    +'<div class="hero-top"><div class="hero-emblem">'+st.svg+'</div><div>'
+    +'<div class="hero-kicker">'+(role===3?'團隊領航':'我的團隊')+'</div>'
+    +'<div class="hero-name">'+name+'</div><div class="hero-title">'+st.name+'・'+st.title+'</div></div></div>'
+    +'<div class="hero-motto">'+motto+'</div>'
+    +'<div class="hero-meta"><div><span>團隊成員</span><b>'+team.length+' 人</b></div>'
+    +'<div><span>直屬學員</span><b>'+direct+' 人</b></div>'
+    +'<div><span>其中老師</span><b>'+teachers+' 位</b></div></div></div>';
+  var box=document.getElementById('r-hero');
+  if(!box){box=document.createElement('div');box.id='r-hero';view.insertBefore(box,view.firstChild);}
+  box.innerHTML=html;
+}
+function goReviewPending(){
+  if(currentAccount&&currentAccount.type==='both'&&currentMode!=='ref'){switchBothTab('ref');}
+  var tabs=document.querySelectorAll('#view-ref .stab');
+  if(tabs[0])switchRefTab('r-pending',tabs[0]);
+  var t=document.getElementById('r-pending'); if(t)setTimeout(function(){t.scrollIntoView({behavior:'smooth',block:'start'});},80);
+}
+function refreshPendingUI(){
+  var acc=currentAccount;
+  var rid=acc&&(acc.type==='ref'||acc.type==='both')?acc.linkedId:null;
+  var pend=rid?teamPending(rid):{e:0,p:0,r:0,total:0};
+  try{document.title=(pend.total?'('+pend.total+') ':'')+'MIIRAGIC 積點管理系統';}catch(e){}
+  // 推薦人頁的提醒條
+  var view=document.getElementById('view-ref');
+  if(view){
+    var bar=document.getElementById('r-alert');
+    if(!bar){bar=document.createElement('div');bar.id='r-alert';var hero=document.getElementById('r-hero');view.insertBefore(bar,hero?hero.nextSibling:view.firstChild);}
+    if(pend.total){
+      var parts=[];if(pend.e)parts.push('積點 '+pend.e);if(pend.p)parts.push('業績 '+pend.p);if(pend.r)parts.push('兌換 '+pend.r);
+      bar.className='pend-alert on';
+      bar.innerHTML='<div class="pa-bell">🔔<i></i></div><div class="pa-txt"><b>你有 '+pend.total+' 筆待審核</b><span>'+parts.join('・')+'</span></div><button class="pa-btn" onclick="goReviewPending()">立即審核</button>';
+    }else{
+      bar.className='pend-alert calm';
+      bar.innerHTML='<div class="pa-txt"><span>✓ 目前沒有待審核的單</span></div>';
+    }
+    var tab=document.querySelector('#view-ref .stab');
+    if(tab)tab.innerHTML='待審核'+(pend.total?'<span class="cnt-badge">'+pend.total+'</span>':'');
+  }
+  // 雙身份：「我的團隊」分頁徽章＋我的積點頁提醒
+  var bt=document.getElementById('both-tab-ref');
+  if(bt){var old=bt.querySelector('.cnt-badge');if(old)old.remove();if(acc&&acc.type==='both'&&pend.total){var sp=document.createElement('span');sp.className='cnt-badge';sp.textContent=pend.total;bt.appendChild(sp);}}
+  var sv=document.getElementById('view-student');
+  if(sv){
+    var sb=document.getElementById('s-team-alert');
+    if(acc&&acc.type==='both'&&pend.total){
+      if(!sb){sb=document.createElement('div');sb.id='s-team-alert';sv.insertBefore(sb,sv.firstChild);}
+      sb.className='pend-alert on';
+      sb.innerHTML='<div class="pa-bell">🔔<i></i></div><div class="pa-txt"><b>團隊有 '+pend.total+' 筆等你審核</b><span>下線送出的單，要你按通過才會生效</span></div><button class="pa-btn" onclick="goReviewPending()">去審核</button>';
+    }else if(sb){sb.remove();}
+  }
+}
+
 // ═══════════ 2026-09 改版：階段旅程卡＋晉升畫面 ═══════════
 var STAGES=[
   {name:'學員',title:'萌芽之階',motto:'每一份推薦，都是能量的起點。<br>累積 50 點，就能踏上老師之路。',
@@ -2165,6 +2263,8 @@ function viaLabel(s,rid){
 }
 
 function renderRefView(rid){
+  try{renderRefHero(rid);}catch(e){console.error(e);}
+  try{setTimeout(refreshPendingUI,0);}catch(e){}
   var teamStu=getTeamStudents(rid);
   var mySids=teamStu.map(function(s){return s.id;});
   var ep=earnRecords.filter(function(r){return mySids.indexOf(r.sid)>-1&&r.status==='pending';});
