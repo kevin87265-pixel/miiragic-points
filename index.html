@@ -1683,6 +1683,8 @@ function startSession(acc,weak){
   renderTopbar();
   enterAsAccount(acc);
   showWeakPw(weak);
+  // 從業績系統「去審核」點過來（網址帶 ?go=review）→ 直接跳到待審核
+  try{if(/[?&]go=review/.test(location.search)&&(acc.type==='ref'||acc.type==='both')){setTimeout(goReviewPending,350);history.replaceState(null,'',location.pathname);}}catch(e){}
 }
 
 // 密碼太簡單的提醒
