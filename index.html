@@ -993,6 +993,12 @@ body.stage-0 .both-tab.active, body.stage-1 .both-tab.active, body.stage-2 .both
 #r-hero{margin-bottom:14px;}
 #view-ref .stat-grid{margin-top:4px;}
 @media (prefers-reduced-motion: reduce){.pa-bell,.pa-bell i{animation:none!important}}
+
+/* 管理員學員列：按鈕可換行 */
+.stu-adm{flex-wrap:wrap;gap:10px;}
+.stu-btns{flex-wrap:wrap;justify-content:flex-end;}
+.stu-btns .btn{white-space:nowrap;}
+@media (max-width:640px){.stu-adm>div:first-child{flex:1 1 100%;}.stu-btns{flex:1 1 100%;justify-content:flex-start;}}
 </style>
 </head>
 <body>
@@ -2423,6 +2429,7 @@ async function autoPushUp(rec,kind){
     if(!up)return null;                                // 上面是純推薦人，到頂
     var upRole=Number(up.role||0);
     if(upRole>=3)return null;                          // 遇到正式老師就停
+    if(upRole<Number(s.role||0))return null;           // 上線階級比自己低（例：1680 的上線還是 50 點學員、1470 的上線還是 1680）→ 金額對不上，不往上送
     var item=kind==='earn'?ruleToItem(rules.find(function(r){return r.id===rec.ruleId;})):rec.item;
     if(!item||item==='[管理員調整]')return null;
     var qty=Number(rec.qty||1);
@@ -2464,6 +2471,10 @@ async function reviewRedeemAdmin(id,status,rid,sid){
   var r=redeemRecords.find(function(x){return x.id===id;});
   if(r){var _res=await dbUpdate('redeem_records',id,{status:status});if(_res.error)return;r.status=status;}
   renderSuper();showToast(status==='approved'?'兌換已通過':'兌換已拒絕');
+}
+function adminDirectUpgrade(sid,nm){
+  if(!confirm('確定讓「'+nm+'」直接升為考核老師（1680）嗎？\n\n適用：報名 66,000 課程的學員。\n・不需要累積 50 點\n・他目前的點數會保留成可兌換點數\n・不會幫他的推薦人產生任何點數或業績'))return;
+  adminUpgradeStudent(sid);
 }
 async function adminUpgradeStudent(sid){
   var s=students.find(function(x){return x.id===sid;});
@@ -2575,8 +2586,9 @@ function renderStudentListInner(){
     var stat=role===0?earn.toFixed(1)+' 點':fmtPV(pv)+' PV';
     var canUpgrade=(role===0&&earn>=50);
     var upgradeBtn2=canUpgrade?'<button class="btn btn-sm" style="background:#16a975;color:#fff;" data-sid="'+s.id+'" onclick="adminUpgradeStudent(this.dataset.sid)">⬆ 升級老師</button>':'';
+    if(role===0&&!canUpgrade)upgradeBtn2='<button class="btn btn-sm" style="background:#8f635e;color:#fff;" data-sid="'+s.id+'" data-nm="'+s.name+'" onclick="adminDirectUpgrade(this.dataset.sid,this.dataset.nm)">⬆ 直升考核（66,000）</button>';
     var adjBtns='<button class="btn btn-warn btn-sm" onclick="openAdjustPts(\''+s.id+'\',\''+s.name+'\','+earn+')">調整點數</button><button class="btn btn-warn btn-sm" onclick="openAdjustPv(\''+s.id+'\',\''+s.name+'\','+pv+')">調整PV</button>'+upgradeBtn2;
-    return mkCard('<div class="row-between" style="margin-bottom:8px;"><div class="row"><div class="avatar" style="background:'+col.bg+';color:'+col.color+';">'+s.name[0]+'</div><div><div class="ttl">'+s.name+' '+roleBadge(role)+'</div><div class="lbl">推薦人：'+(ref?ref.name:'未指定')+'</div></div></div><div class="row" style="gap:6px;"><span style="font-size:13px;font-weight:600;">'+stat+'</span>'+adjBtns+'<button class="btn btn-ng btn-sm" onclick="deleteStudent(\''+s.id+'\')">刪除</button></div></div><div class="bar-wrap"><div class="'+barCls+'" style="width:'+barPct+'%"></div></div>');
+    return mkCard('<div class="row-between stu-adm" style="margin-bottom:8px;"><div class="row"><div class="avatar" style="background:'+col.bg+';color:'+col.color+';">'+s.name[0]+'</div><div><div class="ttl">'+s.name+' '+roleBadge(role)+'</div><div class="lbl">推薦人：'+(ref?ref.name:'未指定')+'</div></div></div><div class="row stu-btns" style="gap:6px;"><span style="font-size:13px;font-weight:600;white-space:nowrap;">'+stat+'</span>'+adjBtns+'<button class="btn btn-ng btn-sm" onclick="deleteStudent(\''+s.id+'\')">刪除</button></div></div><div class="bar-wrap"><div class="'+barCls+'" style="width:'+barPct+'%"></div></div>');
   }
 
   var pts=students.filter(function(s){return Number(s.role||0)===0;});
